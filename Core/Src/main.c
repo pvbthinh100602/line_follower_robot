@@ -32,7 +32,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,7 +65,12 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-
+uint8_t status = START;
+uint8_t temp_status = FORWARD_1;
+uint8_t step = 0;
+uint8_t count = 0;
+uint8_t arr[50] = "FRFLBRBL\0";
+uint8_t index = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
