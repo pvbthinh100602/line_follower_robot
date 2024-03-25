@@ -36,7 +36,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define		ERROR_RANGE		50
+#define		ERROR_RANGE		100
 
 #define		CALIB			90
 #define 	FORWARD_1 		100
@@ -68,18 +68,19 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-uint8_t status = START;
+uint8_t status = CALIB;
 uint8_t temp_status = FORWARD_1;
 uint8_t step = 0;
 uint8_t count = 0;
 uint8_t arr[50] = "FRFLBRBL\0";
 uint8_t index = 0;
-uint16_t sensor_value[3];
-uint16_t sensor_calib[3];
+volatile uint16_t sensor_value[5];
+uint16_t sensor_calib[5];
 int sensor_buffer = 0;
 int led_count = 0;
 int led_cycle = 25;
 int button_count = 0;
+int pre_pos = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,31 +91,31 @@ static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-void button_scan();
-void sensor_scan();
-void led_blink();
+void buttonScan();
+void sensorScan();
+void ledBlink();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void button_scan(){
+void buttonScan(){
 	if(HAL_GPIO_ReadPin(USER_KEY_GPIO_Port, USER_KEY_Pin) == 1) button_count++;
 	else button_count = 0;
 }
 
-void sensor_scan(){
-	HAL_ADC_Start_DMA(&hadc1, sensor_value, 3);
+void sensorScan(){
+	HAL_ADC_Start_DMA(&hadc1, sensor_value, 5);
 	sensor_buffer = 0;
-	for(int i = 0; i < 3; i++){
+	for(int i = 0; i < 5; i++){
 		sensor_buffer = sensor_buffer << 1;
-		if(sensor_value[i] > sensor_calib[i] - ERROR_RANGE && sensor_value[i] < sensor_calib[i] + ERROR_RANGE) sensor_buffer++;
+		if((sensor_value[i] > sensor_calib[i] - ERROR_RANGE) && (sensor_value[i] < sensor_calib[i] + ERROR_RANGE)) sensor_buffer++;
 	}
 }
 
-void led_blink(){
+void ledBlink(){
 	led_count++;
-	if(led_count == led_cycle) {
+	if(led_count >= led_cycle) {
 		led_count = 0;
 		HAL_GPIO_TogglePin(LED_DEBUG_GPIO_Port, LED_DEBUG_Pin);
 	}
@@ -307,8 +308,11 @@ void rotate_right(){
 //}
 
 uint8_t check_line(){
-
-	return sensor_buffer == 0b111 || sensor_buffer == 0b101 || sensor_buffer == 0b110 || sensor_buffer == 0b011;
+	uint8_t result = 0;
+	for(int i = 0; i < 5; i++){
+		if((sensor_buffer & (1u << i)) != 0) result++;
+	}
+	return result;
 }
 
 //void line_set(){
@@ -391,7 +395,7 @@ uint8_t check_status(){
 }
 
 void sensorCalib(){
-	for(int i = 0; i < 3; i++){
+	for(int i = 0; i < 5; i++){
 		sensor_calib[i] = sensor_value[i];
 	}
 }
@@ -401,6 +405,7 @@ void line_set_temp(){
 		case CALIB:
 			if(button_count == 100){
 				sensorCalib();
+				led_cycle = 100;
 				status = START;
 			}
 			break;
@@ -412,7 +417,7 @@ void line_set_temp(){
 			break;
 		case FORWARD:
 			forward();
-			if(check_line()){
+			if(check_line() >= 3){
 				status = ENDWARDS;
 				stop();
 				count = 20;
@@ -420,20 +425,20 @@ void line_set_temp(){
 			break;
 		case READYBACKWARDS:
 			backwards();
-			if(check_line()){
+			if(check_line() >= 3){
 				status = READYBACKWARDS2;
 			}
 			break;
 		case READYBACKWARDS2:
 			backwards();
-			if(check_line() == 0){
+			if(check_line() == 1){
 				status = BACKWARD;
 				stop();
 			}
 			break;
 		case BACKWARD:
 			backwards();
-			if(check_line()){
+			if(check_line() >= 3){
 				status = ENDBACK;
 				stop();
 				count = 20;
@@ -442,12 +447,12 @@ void line_set_temp(){
 		case ENDBACK:
 			count--;
 			if(count <= 0){
-				if(check_line()){
+				if(check_line() >= 3){
 					status = ENDWARDS;
 					stop();
 					count = 20;
 				}
-				if(check_line() == 0){
+				if(check_line() <= 4){
 					status = FORWARD;
 				}
 			}
@@ -455,8 +460,8 @@ void line_set_temp(){
 		case ENDWARDS:
 			count--;
 			if(count <= 0){
-				count = 20;
-				if(check_line() != 0)
+
+				if(check_line() >= 3)
 					forward();
 				else{
 					stop();
@@ -466,26 +471,26 @@ void line_set_temp(){
 			break;
 		case TURNLEFT:
 			left();
-			if(sensor_buffer == 0b100){
+			if(sensor_buffer == 0b10000){
 				status = ENDLEFT;
 			}
 			break;
 		case ENDLEFT:
 			left();
-			if(sensor_buffer == 0b010){
+			if(sensor_buffer == 0b00100){
 				stop();
 				status = check_status();
 			}
 			break;
 		case TURNRIGHT:
 			right();
-			if(sensor_buffer == 0b001){
+			if(sensor_buffer == 0b00001){
 				status = ENDRIGHT;
 			}
 			break;
 		case ENDRIGHT:
 			right();
-			if(sensor_buffer == 0b010){
+			if(sensor_buffer == 0b00100){
 				stop();
 				status = check_status();
 			}
@@ -570,10 +575,10 @@ int main(void)
 //		  forward();
 //		  turn_left();
 //		  line();
-		  button_scan();
-		  sensor_scan();
+		  buttonScan();
+		  sensorScan();
 		  line_set_temp();
-		  led_blink();
+		  ledBlink();
 //		  left();
 //		  dc3_forward(50);
 	  }
@@ -654,7 +659,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 3;
+  hadc1.Init.NbrOfConversion = 5;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -670,6 +675,7 @@ static void MX_ADC1_Init(void)
   }
   /** Configure Regular Channel
   */
+  sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -677,7 +683,24 @@ static void MX_ADC1_Init(void)
   }
   /** Configure Regular Channel
   */
+  sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
