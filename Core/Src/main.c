@@ -36,6 +36,9 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define		ERROR_RANGE		50
+
+#define		CALIB			90
 #define 	FORWARD_1 		100
 #define 	FORWARD_2 		101
 #define 	FORWARD_3 		102
@@ -76,6 +79,7 @@ uint16_t sensor_calib[3];
 int sensor_buffer = 0;
 int led_count = 0;
 int led_cycle = 25;
+int button_count = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,11 +99,17 @@ void led_blink();
 /* USER CODE BEGIN 0 */
 
 void button_scan(){
-
+	if(HAL_GPIO_ReadPin(USER_KEY_GPIO_Port, USER_KEY_Pin) == 1) button_count++;
+	else button_count = 0;
 }
 
 void sensor_scan(){
-
+	HAL_ADC_Start_DMA(&hadc1, sensor_value, 3);
+	sensor_buffer = 0;
+	for(int i = 0; i < 3; i++){
+		sensor_buffer = sensor_buffer << 1;
+		if(sensor_value[i] > sensor_calib[i] - ERROR_RANGE && sensor_value[i] < sensor_calib[i] + ERROR_RANGE) sensor_buffer++;
+	}
 }
 
 void led_blink(){
@@ -281,90 +291,90 @@ void rotate_right(){
 //	stop();
 }
 
-void line(){
-	if(HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0){
-		forward();
-	}
-	else if(HAL_GPIO_ReadPin(S2_GPIO_Port, S2_Pin) == 0){
-		rotate_left();
-	}
-	else if(HAL_GPIO_ReadPin(S4_GPIO_Port, S4_Pin) == 0){
-		rotate_right();
-	}
-	else{
-		stop();
-	}
-}
+//void line(){
+//	if(HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0){
+//		forward();
+//	}
+//	else if(HAL_GPIO_ReadPin(S2_GPIO_Port, S2_Pin) == 0){
+//		rotate_left();
+//	}
+//	else if(HAL_GPIO_ReadPin(S4_GPIO_Port, S4_Pin) == 0){
+//		rotate_right();
+//	}
+//	else{
+//		stop();
+//	}
+//}
 
 uint8_t check_line(){
 
-	return 0;
+	return sensor_buffer == 0b111 || sensor_buffer == 0b101 || sensor_buffer == 0b110 || sensor_buffer == 0b011;
 }
 
-void line_set(){
-	switch(status) {
-		case FORWARD_1:
-			forward();
-			if(check_line()){
-				status = READYLEFT;
-				stop();
-				count = 20;
-			}
-			break;
-		case READYLEFT:
-			count--;
-			if(count <= 0){
-				count = 20;
-				if(check_line() != 0)
-					forward();
-				else{
-					stop();
-					status = TURNLEFT;
-				}
-			}
-			break;
-		case TURNLEFT:
-			left();
-			if(HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 0){
-				status = READYFORWARD;
-				count = 20;
-			}
-			break;
-		case READYFORWARD:
-			left();
-			if(HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0){
-				stop();
-				status = FORWARD_2;
-			}
-			break;
-		case FORWARD_2:
-			forward();
-			if(check_line()){
-				status = READYSTEP2;
-			}
-			break;
-		case READYSTEP2:
-			if(check_line() != 0)
-				forward();
-			else{
-				status = FORWARD_3;
-			}
-			break;
-		case FORWARD_3:
-			forward();
-			if(check_line()){
-				status = STOP;
-			}
-			break;
-		case STOP:
-			stop();
-			break;
-		default:
-			status = FORWARD_1;
-			break;
-	}
-
-}
+//void line_set(){
+//	switch(status) {
+//		case FORWARD_1:
+//			forward();
+//			if(check_line()){
+//				status = READYLEFT;
+//				stop();
+//				count = 20;
+//			}
+//			break;
+//		case READYLEFT:
+//			count--;
+//			if(count <= 0){
+//				count = 20;
+//				if(check_line() != 0)
+//					forward();
+//				else{
+//					stop();
+//					status = TURNLEFT;
+//				}
+//			}
+//			break;
+//		case TURNLEFT:
+//			left();
+//			if(sensor_buffer == 0b100){
+//				status = READYFORWARD;
+//				count = 20;
+//			}
+//			break;
+//		case READYFORWARD:
+//			left();
+//			if(sensor_buffer == 0b010){
+//				stop();
+//				status = FORWARD_2;
+//			}
+//			break;
+//		case FORWARD_2:
+//			forward();
+//			if(check_line()){
+//				status = READYSTEP2;
+//			}
+//			break;
+//		case READYSTEP2:
+//			if(check_line() != 0)
+//				forward();
+//			else{
+//				status = FORWARD_3;
+//			}
+//			break;
+//		case FORWARD_3:
+//			forward();
+//			if(check_line()){
+//				status = STOP;
+//			}
+//			break;
+//		case STOP:
+//			stop();
+//			break;
+//		default:
+//			status = FORWARD_1;
+//			break;
+//	}
+//
+//}
 
 uint8_t check_status(){
 	index++;
@@ -380,11 +390,25 @@ uint8_t check_status(){
 		return READYBACKWARDS;
 }
 
+void sensorCalib(){
+	for(int i = 0; i < 3; i++){
+		sensor_calib[i] = sensor_value[i];
+	}
+}
+
 void line_set_temp(){
 	switch(status) {
+		case CALIB:
+			if(button_count == 100){
+				sensorCalib();
+				status = START;
+			}
+			break;
 		case START:
-			index = 0;
-			status = check_status();
+			if(button_count == 1){
+				index = 0;
+				status = check_status();
+			}
 			break;
 		case FORWARD:
 			forward();
@@ -442,26 +466,26 @@ void line_set_temp(){
 			break;
 		case TURNLEFT:
 			left();
-			if(HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 0){
+			if(sensor_buffer == 0b100){
 				status = ENDLEFT;
 			}
 			break;
 		case ENDLEFT:
 			left();
-			if(HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0){
+			if(sensor_buffer == 0b010){
 				stop();
 				status = check_status();
 			}
 			break;
 		case TURNRIGHT:
 			right();
-			if(HAL_GPIO_ReadPin(S5_GPIO_Port, S5_Pin) == 0){
+			if(sensor_buffer == 0b001){
 				status = ENDRIGHT;
 			}
 			break;
 		case ENDRIGHT:
 			right();
-			if(HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0){
+			if(sensor_buffer == 0b010){
 				stop();
 				status = check_status();
 			}
@@ -546,7 +570,10 @@ int main(void)
 //		  forward();
 //		  turn_left();
 //		  line();
+		  button_scan();
+		  sensor_scan();
 		  line_set_temp();
+		  led_blink();
 //		  left();
 //		  dc3_forward(50);
 	  }
@@ -808,7 +835,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_DEBUG_Pin|IN1_DC1_Pin|IN2_DC1_Pin|IN2_DC1B12_Pin
+  HAL_GPIO_WritePin(GPIOB, LED_DEBUG_Pin|IN1_DC1_Pin|IN2_DC1_Pin|IN1_DC2_Pin
                           |IN2_DC2_Pin|IN1_DC3_Pin|IN2_DC3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -817,12 +844,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : USER_KEY_Pin */
   GPIO_InitStruct.Pin = USER_KEY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(USER_KEY_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_DEBUG_Pin IN1_DC1_Pin IN2_DC1_Pin IN2_DC1B12_Pin
+  /*Configure GPIO pins : LED_DEBUG_Pin IN1_DC1_Pin IN2_DC1_Pin IN1_DC2_Pin
                            IN2_DC2_Pin IN1_DC3_Pin IN2_DC3_Pin */
-  GPIO_InitStruct.Pin = LED_DEBUG_Pin|IN1_DC1_Pin|IN2_DC1_Pin|IN2_DC1B12_Pin
+  GPIO_InitStruct.Pin = LED_DEBUG_Pin|IN1_DC1_Pin|IN2_DC1_Pin|IN1_DC2_Pin
                           |IN2_DC2_Pin|IN1_DC3_Pin|IN2_DC3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
