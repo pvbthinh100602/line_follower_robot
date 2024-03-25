@@ -71,6 +71,11 @@ uint8_t step = 0;
 uint8_t count = 0;
 uint8_t arr[50] = "FRFLBRBL\0";
 uint8_t index = 0;
+uint16_t sensor_value[3];
+uint16_t sensor_calib[3];
+int sensor_buffer = 0;
+int led_count = 0;
+int led_cycle = 25;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,10 +88,28 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 void button_scan();
 void sensor_scan();
+void led_blink();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void button_scan(){
+
+}
+
+void sensor_scan(){
+
+}
+
+void led_blink(){
+	led_count++;
+	if(led_count == led_cycle) {
+		led_count = 0;
+		HAL_GPIO_TogglePin(LED_DEBUG_GPIO_Port, LED_DEBUG_Pin);
+	}
+}
+
 uint8_t speed_duty_cycle = 0;
 void set_speed(uint8_t dc, uint8_t duty_cycle) {
 	speed_duty_cycle = duty_cycle;
