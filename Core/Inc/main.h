@@ -47,7 +47,7 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+TIM_HandleTypeDef htim4;
 /* USER CODE END EM */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
@@ -80,10 +80,6 @@ void Error_Handler(void);
 #define IN1_DC4_GPIO_Port GPIOA
 #define IN2_DC4_Pin GPIO_PIN_9
 #define IN2_DC4_GPIO_Port GPIOA
-#define CLP_Pin GPIO_PIN_8
-#define CLP_GPIO_Port GPIOB
-#define Near_Pin GPIO_PIN_9
-#define Near_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
