@@ -9,7 +9,6 @@
 #define INC_MOVE_DRIVER_H_
 
 #include "main.h"
-#include "stdlib.h"
 
 void setSpeed(uint8_t dc, uint8_t duty_cycle);
 

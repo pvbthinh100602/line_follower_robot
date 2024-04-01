@@ -42,6 +42,7 @@ void dc1Backwards(uint8_t duty_cycle){ //lùi
 void dc1Stop(){
   HAL_GPIO_WritePin(IN1_DC1_GPIO_Port, IN1_DC1_Pin, 0);
   HAL_GPIO_WritePin(IN2_DC1_GPIO_Port, IN2_DC1_Pin, 0);
+  setSpeed(1, 0);
 }
 
 void dc2Forward(uint8_t duty_cycle){ //tiến
@@ -59,12 +60,13 @@ void dc2Backwards(uint8_t duty_cycle){ //lùi
 void dc2Stop(){
   HAL_GPIO_WritePin(IN1_DC2_GPIO_Port, IN1_DC2_Pin, 0);
   HAL_GPIO_WritePin(IN2_DC2_GPIO_Port, IN2_DC2_Pin, 0);
+  setSpeed(2, 0);
 }
 
 void dc3Forward(uint8_t duty_cycle){ //tiến
-  HAL_GPIO_WritePin(IN1_DC3_GPIO_Port, IN1_DC3_Pin, 1);
-  HAL_GPIO_WritePin(IN2_DC3_GPIO_Port, IN2_DC3_Pin, 0);
-  setSpeed(3, duty_cycle);
+	HAL_GPIO_WritePin(IN1_DC3_GPIO_Port, IN1_DC3_Pin, 1);
+	HAL_GPIO_WritePin(IN2_DC3_GPIO_Port, IN2_DC3_Pin, 0);
+	setSpeed(3, duty_cycle);
 }
 
 void dc3Backwards(uint8_t duty_cycle){ //lùi
@@ -76,6 +78,7 @@ void dc3Backwards(uint8_t duty_cycle){ //lùi
 void dc3Stop(){
   HAL_GPIO_WritePin(IN1_DC3_GPIO_Port, IN1_DC3_Pin, 0);
   HAL_GPIO_WritePin(IN2_DC3_GPIO_Port, IN2_DC3_Pin, 0);
+  setSpeed(3, 0);
 }
 
 void dc4Forward(uint8_t duty_cycle){ //tiến
@@ -93,6 +96,7 @@ void dc4Backwards(uint8_t duty_cycle){ //lùi
 void dc4Stop(){
   HAL_GPIO_WritePin(IN1_DC4_GPIO_Port, IN1_DC4_Pin, 0);
   HAL_GPIO_WritePin(IN2_DC4_GPIO_Port, IN2_DC4_Pin, 0);
+  setSpeed(4, 0);
 }
 
 void stop(){

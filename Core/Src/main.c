@@ -67,7 +67,7 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim2;
-//TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 uint8_t status = CALIB;
@@ -75,7 +75,7 @@ uint8_t temp_status = FORWARD_1;
 //uint8_t temp_status = FORWARD_1;
 uint8_t step = 0;
 uint8_t count = 0;
-uint8_t arr[50] = "FRFLBRBL\0";
+uint8_t arr[50] = "FRFLFRFRFFRFFR\0";
 uint8_t index = 0;
 uint16_t sensor_value[5];
 uint16_t sensor_calib[5];
@@ -99,7 +99,6 @@ void ledBlink();
 uint8_t checkLine();
 uint8_t checkStatus();
 void sensorCalib();
-void lineSet();
 void lineSet();
 void test();
 /* USER CODE END PFP */
@@ -157,8 +156,11 @@ int main(void)
 	  if(timer_flag[1]){
 		  setTimer(1,10);
 		  buttonScan();
-		  sensorScan();
+//		  sensorScan();
+		  checkLine();
 		  lineSet();
+//		  forward();
+//		  backwards();
 		  ledBlink();
 	  }
     /* USER CODE END WHILE */
@@ -496,17 +498,64 @@ void ledBlink(){
 	}
 }
 
+//uint8_t checkLine(){
+////	uint8_t check;
+////	check = (HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 0) + (HAL_GPIO_ReadPin(S2_GPIO_Port, S2_Pin) == 0) + (HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0)
+////			+ (HAL_GPIO_ReadPin(S4_GPIO_Port, S4_Pin) == 0) + (HAL_GPIO_ReadPin(S5_GPIO_Port, S5_Pin) == 0);
+////	return sensor_buffer == 0b111 || sensor_buffer == 0b101 || sensor_buffer == 0b110 || sensor_buffer == 0b011;
+//	uint8_t result = 0;
+//		for(int i = 0; i < 5; i++){
+//			if((sensor_buffer & (1u << i)) != 0) result++;	// i là 0 1 2 3 4, ex: abcde & 00100 = 00c00
+//			//&& trả v�? true or false, & so bitwise rồi chuyển từ nhị phân lại thập phân
+//		}
+//	return result;
+//}
+
+#define LINE_CENTER	0
+#define LINE_CROSS	1
+#define LINE_ERROR	2
+#define LINE_LEFT	3
+#define LINE_RIGHT	4
+
+uint8_t line_code = 0;
 uint8_t checkLine(){
-//	uint8_t check;
-//	check = (HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 0) + (HAL_GPIO_ReadPin(S2_GPIO_Port, S2_Pin) == 0) + (HAL_GPIO_ReadPin(S3_GPIO_Port, S3_Pin) == 0)
-//			+ (HAL_GPIO_ReadPin(S4_GPIO_Port, S4_Pin) == 0) + (HAL_GPIO_ReadPin(S5_GPIO_Port, S5_Pin) == 0);
-//	return sensor_buffer == 0b111 || sensor_buffer == 0b101 || sensor_buffer == 0b110 || sensor_buffer == 0b011;
-	uint8_t result = 0;
-		for(int i = 0; i < 5; i++){
-			if((sensor_buffer & (1u << i)) != 0) result++;	// i là 0 1 2 3 4, ex: abcde & 00100 = 00c00
-			//&& trả v�? true or false, & so bitwise rồi chuyển từ nhị phân lại thập phân
-		}
-	return result;
+	sensorScan();
+	switch (sensor_buffer) {
+		case 0b00000:
+			line_code = LINE_ERROR;
+			break;
+		case 0b11111:
+		case 0b11110:
+		case 0b01111:
+		case 0b01010:
+		case 0b11011:
+			line_code = LINE_CROSS;
+			break;
+		case 0b00100:
+		case 0b01110:
+			line_code = LINE_CENTER;
+			break;
+
+		case 0b11100:
+		case 0b11000:
+		case 0b10000:
+		case 0b01100:
+		case 0b01000:
+			line_code = LINE_LEFT;
+			break;
+
+		case 0b00111:
+		case 0b00011:
+		case 0b00001:
+		case 0b00110:
+		case 0b00010:
+			line_code = LINE_RIGHT;
+			break;
+		default:
+			line_code = LINE_ERROR;
+			break;
+	}
+	return 0;
 }
 
 uint8_t checkStatus(){
@@ -521,6 +570,7 @@ uint8_t checkStatus(){
 		return FORWARD;
 	if(arr[index-1] == 'B')
 		return READYBACKWARDS;
+	return 0;
 }
 
 void sensorCalib(){
@@ -529,6 +579,98 @@ void sensorCalib(){
 	}
 }
 
+void followLine(){
+	switch (line_code) {
+		case LINE_ERROR:
+			forward();
+			break;
+		case LINE_CENTER:
+			forward();
+			break;
+		case LINE_RIGHT:
+			rotateRight();
+			break;
+		case LINE_LEFT:
+			rotateLeft();
+			break;
+		case LINE_CROSS:
+			stop();
+			break;
+		default:
+			break;
+	}
+}
+
+int status_follow = 0;
+int followLineUntilCross(){
+//	 status = 1
+//	        count = 0
+//
+//	        while True:
+//	            line_state = self._line_sensor.check()
+//
+//	            if status == 1:
+//	                if line_state != LINE_CROSS:
+//	                    status = 2
+//	            elif status == 2:
+//	                if line_state == LINE_CROSS:
+//	                    count = count + 1
+//	                    if count == 2:
+//	                        break
+//
+//	            await self.follow_line(True, line_state)
+//
+//	            if status == 2 and count == 1:
+//	                await asleep_ms(20)
+//	            else:
+//	                await asleep_ms(10)
+//
+//	        #await self.forward_for(0.1, unit=SECOND) # to pass cross line a bit
+//	        await self.stop_then(then)
+	if(status_follow == 0){
+		if(line_code != LINE_CROSS) status_follow = 1;
+	} else if(status_follow == 1){
+		if(line_code == LINE_CROSS) {
+			stop();
+			return 1;
+		}
+	}
+	followLine();
+	return 0;
+}
+
+int status_turn_left = 0;
+int turnLeftUntilLine(){
+	rotateLeft();
+	if(status_turn_left == 0){
+		if(line_code != LINE_CENTER) status_turn_left = 1;
+	} else if(status_turn_left == 1){
+		if(line_code == LINE_LEFT) {
+			status_turn_left = 0;
+			stop();
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int status_turn_right = 0;
+int turnRightUntilLine(){
+	rotateRight();
+	if(status_turn_right == 0){
+		if(line_code != LINE_CENTER) status_turn_right = 1;
+	} else if(status_turn_right == 1){
+		if(line_code == LINE_RIGHT) {
+			status_turn_right = 0;
+			stop();
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+#define GET_STATUS	21
 void lineSet(){
 	switch(status) {
 		case CALIB:
@@ -538,19 +680,31 @@ void lineSet(){
 				status = START;
 			}
 			break;
-		case START:
-			if(button_count == 1){
-				index = 0;
+		case GET_STATUS:
+			if(count > 0) count--;
+			if(count == 0){
 				status = checkStatus();
 			}
 			break;
-		case FORWARD:
-			forward();
-			if(checkLine() >= 3){
-				status = ENDWARDS;
-				stop();
-				count = 20;
+		case START:
+			if(button_count == 1){
+				index = 0;
+				status = GET_STATUS;
+//				status = FOLLOW;
 			}
+			break;
+		case FORWARD:
+			if(followLineUntilCross() == 1) {
+				status = GET_STATUS;
+				count = 100;
+			}
+//			if(checkLine() == LINE_CENTER)
+//			forward();
+//			if(checkLine() == LINE_CENTER){
+//				status = ENDWARDS;
+//				stop();
+//				count = 20;
+//			}
 			break;
 		case READYBACKWARDS:
 			backwards();
@@ -598,10 +752,13 @@ void lineSet(){
 			}
 			break;
 		case TURNLEFT:
-			left();
-//			if(HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 1)
-			if(sensor_buffer == 0b10000){
-				status = ENDLEFT;
+//			left();
+//			if(sensor_buffer == 0b10000){
+//				status = ENDLEFT;
+//			}
+			if(turnLeftUntilLine() == 1) {
+				status = GET_STATUS;
+				count = 100;
 			}
 			break;
 		case ENDLEFT:
@@ -612,9 +769,13 @@ void lineSet(){
 			}
 			break;
 		case TURNRIGHT:
-			right();
-			if(sensor_buffer == 0b00001){
-				status = ENDRIGHT;
+//			right();
+//			if(sensor_buffer == 0b00001){
+//				status = ENDRIGHT;
+//			}
+			if(turnRightUntilLine() == 1) {
+				status = GET_STATUS;
+				count = 100;
 			}
 			break;
 		case ENDRIGHT:
@@ -632,6 +793,115 @@ void lineSet(){
 			break;
 	}
 }
+
+//void lineSet(){
+//	switch(status) {
+//		case FOLLOW:
+//			followLine();
+//			break;
+//		case CALIB:
+//			if(button_count == 100){
+//				sensorCalib();
+//				led_cycle = 100;
+//				status = START;
+//			}
+//			break;
+//		case START:
+//			if(button_count == 1){
+//				index = 0;
+////				status = checkStatus();
+//				status = FOLLOW;
+//			}
+//			break;
+//		case FORWARD:
+//			if(checkLine() == LINE_CENTER)
+//			forward();
+//			if(checkLine() == LINE_CENTER){
+//				status = ENDWARDS;
+//				stop();
+//				count = 20;
+//			}
+//			break;
+//		case READYBACKWARDS:
+//			backwards();
+//			if(checkLine() >= 3){
+//				status = READYBACKWARDS2;
+//			}
+//			break;
+//		case READYBACKWARDS2:
+//			backwards();
+//			if(checkLine() < 2){
+//				status = BACKWARD;
+//				stop();
+//			}
+//			break;
+//		case BACKWARD:
+//			backwards();
+//			if(checkLine() >= 3){
+//				status = ENDBACK;
+//				stop();
+//				count = 20;
+//			}
+//			break;
+//		case ENDBACK:
+//			count--;
+//			if(count <= 0){
+//				if(checkLine() >= 3){
+//					status = ENDWARDS;
+//					stop();
+//					count = 20;
+//				}
+//				if(checkLine() < 3){
+//					status = FORWARD;
+//				}
+//			}
+//			break;
+//		case ENDWARDS:
+//			count--;
+//			if(count <= 0){
+//				if(checkLine() >= 3)
+//					forward();
+//				else{
+//					stop();
+//					status = checkStatus();
+//				}
+//			}
+//			break;
+//		case TURNLEFT:
+//			left();
+////			if(HAL_GPIO_ReadPin(S1_GPIO_Port, S1_Pin) == 1)
+//			if(sensor_buffer == 0b10000){
+//				status = ENDLEFT;
+//			}
+//			break;
+//		case ENDLEFT:
+//			left();
+//			if(sensor_buffer == 0b00100){
+//				stop();
+//				status = checkStatus();
+//			}
+//			break;
+//		case TURNRIGHT:
+//			right();
+//			if(sensor_buffer == 0b00001){
+//				status = ENDRIGHT;
+//			}
+//			break;
+//		case ENDRIGHT:
+//			right();
+//			if(sensor_buffer == 0b00100){
+//				stop();
+//				status = checkStatus();
+//			}
+//			break;
+//		case STOP:
+//			stop();
+//			break;
+//		default:
+//			status = FORWARD_1;
+//			break;
+//	}
+//}
 
 void test(){
 	dc1Forward(50);
